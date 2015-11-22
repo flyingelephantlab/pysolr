@@ -351,6 +351,11 @@ class Solr(object):
             }
             return self._send_request('post', path, body=params_encoded, headers=headers)
 
+    def _clusters(self, params):
+        params['wt'] = 'json'
+        path = 'clusters/select?%s' % safe_urlencode(params, True)
+        return self._send_request('get', path)
+    
     def _mlt(self, params):
         # specify json encoding of results
         params['wt'] = 'json'
@@ -669,6 +674,22 @@ class Solr(object):
         numFound = response.get('numFound', 0)
         self.log.debug("Found '%s' search results.", numFound)
         return Results(response.get('docs', ()), numFound, **result_kwargs)
+
+    def clusters(self, q, **kwargs):
+        params = {
+            'q': q,
+        }
+        params.update(kwargs)
+        response = self._clusters(params)
+        results = self.decoder.decode(response)
+        if result['response'] is None:
+            result['response'] = {
+                'docs': [],
+                'numFound': 0,
+            }
+
+        self.log.debug("Found '%s' cluster results.", result['response']['numFound'])
+        return Results(result['response']['docs'], result['response']['numFound'], clusters=result['response']['clusters'])
 
     def more_like_this(self, q, mltfl, **kwargs):
         """
