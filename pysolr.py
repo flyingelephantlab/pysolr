@@ -221,7 +221,7 @@ class SolrError(Exception):
 class Results(object):
     def __init__(self, docs, hits, highlighting=None, facets=None,
                  spellcheck=None, stats=None, qtime=None, debug=None,
-                 grouped=None, nextCursorMark=None):
+                 grouped=None, nextCursorMark=None, clusters=None):
         self.docs = docs
         self.hits = hits
         self.highlighting = highlighting or {}
@@ -232,6 +232,7 @@ class Results(object):
         self.debug = debug or {}
         self.grouped = grouped or {}
         self.nextCursorMark = nextCursorMark or None
+        self.clusters = clusters or None
 
     def __len__(self):
         return len(self.docs)
@@ -660,6 +661,9 @@ class Solr(object):
 
         if result.get('nextCursorMark'):
             result_kwargs['nextCursorMark'] = result['nextCursorMark']
+
+        if result.get('clusters'):
+            result_kwargs['clusters'] = result['clusters']
 
         response = result.get('response') or {}
         numFound = response.get('numFound', 0)
