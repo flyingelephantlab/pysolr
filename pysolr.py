@@ -221,7 +221,7 @@ class SolrError(Exception):
 class Results(object):
     def __init__(self, docs, hits, highlighting=None, facets=None,
                  spellcheck=None, stats=None, qtime=None, debug=None,
-                 grouped=None, nextCursorMark=None):
+                 grouped=None, nextCursorMark=None, clusters=None):
         self.docs = docs
         self.hits = hits
         self.highlighting = highlighting or {}
@@ -232,6 +232,7 @@ class Results(object):
         self.debug = debug or {}
         self.grouped = grouped or {}
         self.nextCursorMark = nextCursorMark or None
+        self.clusters = clusters or None
 
     def __len__(self):
         return len(self.docs)
@@ -350,6 +351,11 @@ class Solr(object):
             }
             return self._send_request('post', path, body=params_encoded, headers=headers)
 
+    def _clusters(self, params):
+        params['wt'] = 'json'
+        path = 'clusters/select?%s' % safe_urlencode(params, True)
+        return self._send_request('get', path)
+    
     def _mlt(self, params):
         # specify json encoding of results
         params['wt'] = 'json'
@@ -661,10 +667,29 @@ class Solr(object):
         if result.get('nextCursorMark'):
             result_kwargs['nextCursorMark'] = result['nextCursorMark']
 
+        if result.get('clusters'):
+            result_kwargs['clusters'] = result['clusters']
+
         response = result.get('response') or {}
         numFound = response.get('numFound', 0)
         self.log.debug("Found '%s' search results.", numFound)
         return Results(response.get('docs', ()), numFound, **result_kwargs)
+
+    def clusters(self, q, **kwargs):
+        params = {
+            'q': q,
+        }
+        params.update(kwargs)
+        response = self._clusters(params)
+        results = self.decoder.decode(response)
+        if result['response'] is None:
+            result['response'] = {
+                'docs': [],
+                'numFound': 0,
+            }
+
+        self.log.debug("Found '%s' cluster results.", result['response']['numFound'])
+        return Results(result['response']['docs'], result['response']['numFound'], clusters=result['response']['clusters'])
 
     def more_like_this(self, q, mltfl, **kwargs):
         """
